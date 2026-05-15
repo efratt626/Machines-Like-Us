@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MLU Report Skill</title>
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:       #F2EDE3;
+      --cream-dark:  #E8E0D2;
+      --cream-border:#D5CAB8;
+      --dark:        #1C1C1C;
+      --mid:         #4A4A4A;
+      --muted:       #7A7060;
+      --apple:       #5B2C8D;
+      --spotify:     #1A4B8C;
+      --youtube:     #C0392B;
+      --header-fill: #2C3E50;
+      --chart-red:   #7B1E1E;
+      --accent:      #2C3E50;
+    }
+
+    body {
+      font-family: 'Arial', sans-serif;
+      background: var(--cream);
+      color: var(--dark);
+      line-height: 1.6;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: var(--header-fill);
+      color: #fff;
+      padding: 56px 48px 48px;
+    }
+    .hero-eyebrow {
+      font-size: 11px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+      margin-bottom: 12px;
+    }
+    .hero h1 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 10px;
+    }
+    .hero p {
+      font-size: 15px;
+      color: rgba(255,255,255,0.72);
+      max-width: 560px;
+    }
+    .badge-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      padding: 5px 13px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .badge-apple   { background: var(--apple);   color: #fff; }
+    .badge-spotify { background: var(--spotify);  color: #fff; }
+    .badge-youtube { background: var(--youtube);  color: #fff; }
+    .badge-excel   { background: #1A6B38;         color: #fff; }
+
+    /* ── Layout ── */
+    .page { max-width: 1080px; margin: 0 auto; padding: 0 48px 80px; }
+
+    section { margin-top: 56px; }
+    section + section { border-top: 1px solid var(--cream-border); padding-top: 56px; }
+
+    h2 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    h3 {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--dark);
+      margin-bottom: 8px;
+    }
+
+    p { color: var(--mid); font-size: 14px; }
+
+    /* ── Trigger box ── */
+    .trigger-box {
+      background: var(--cream-dark);
+      border: 1px solid var(--cream-border);
+      border-radius: 10px;
+      padding: 24px 28px;
+    }
+    .trigger-box p {
+      font-size: 14px;
+      color: var(--mid);
+      margin-bottom: 16px;
+    }
+    .phrase-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .phrase {
+      background: #fff;
+      border: 1px solid var(--cream-border);
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 13px;
+      color: var(--accent);
+      font-style: italic;
+    }
+
+    /* ── Workflow steps ── */
+    .steps { display: flex; flex-direction: column; gap: 0; }
+    .step {
+      display: flex;
+      gap: 20px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--cream-border);
+    }
+    .step:last-child { border-bottom: none; }
+    .step-num {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 2px;
+    }
+    .step-body h3 { margin-bottom: 4px; }
+    .step-body p  { font-size: 13.5px; }
+
+    /* ── Folder tree ── */
+    .folder-tree {
+      background: var(--header-fill);
+      color: #d4e0ed;
+      border-radius: 10px;
+      padding: 24px 28px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 2;
+    }
+    .folder-tree .dir   { color: #80b4e0; font-weight: bold; }
+    .folder-tree .file  { color: #b8dab8; }
+    .folder-tree .note  { color: rgba(255,255,255,0.4); font-style: italic; }
+    .folder-tree .arrow { color: rgba(255,255,255,0.3); }
+
+    /* ── Tab cards ── */
+    .tab-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    .tab-card {
+      background: #fff;
+      border: 1px solid var(--cream-border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .tab-card-header {
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .tab-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #fff;
+      padding: 3px 10px;
+      border-radius: 4px;
+    }
+    .tab-label-followers { background: var(--accent); }
+    .tab-label-apple     { background: var(--apple); }
+    .tab-label-spotify   { background: var(--spotify); }
+    .tab-label-youtube   { background: var(--youtube); }
+
+    .tab-card-body { padding: 4px 20px 18px; }
+    .tab-card-body p { font-size: 13px; color: var(--mid); margin-bottom: 10px; }
+
+    /* Mini chart preview */
+    .mini-chart {
+      background: var(--cream);
+      border-radius: 6px;
+      height: 80px;
+      position: relative;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    /* area chart fill */
+    .mini-area {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      clip-path: polygon(
+        0% 70%, 8% 50%, 15% 62%, 22% 35%, 30% 55%, 38% 20%,
+        46% 40%, 54% 30%, 62% 45%, 70% 25%, 78% 38%, 86% 18%, 94% 32%, 100% 28%,
+        100% 100%, 0% 100%
+      );
+      background: var(--chart-red);
+      opacity: 0.88;
+      height: 100%;
+    }
+    /* grid lines */
+    .mini-chart::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent calc(25% - 1px),
+        rgba(197,189,179,0.6) calc(25% - 1px),
+        rgba(197,189,179,0.6) 25%
+      );
+    }
+
+    /* followers line chart */
+    .mini-lines {
+      position: absolute;
+      inset: 8px;
+    }
+    .mini-lines svg { width: 100%; height: 100%; overflow: visible; }
+
+    /* data pill */
+    .data-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--cream-dark);
+      border-radius: 5px;
+      padding: 4px 10px;
+      font-size: 12px;
+      color: var(--mid);
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Style reference table ── */
+    .style-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    .style-card {
+      background: #fff;
+      border: 1px solid var(--cream-border);
+      border-radius: 10px;
+      padding: 20px 22px;
+    }
+    .style-card h3 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+    .style-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--cream-dark);
+      font-size: 13px;
+    }
+    .style-row:last-child { border-bottom: none; }
+    .style-key   { color: var(--mid); }
+    .style-val   { color: var(--dark); font-weight: 600; font-family: 'Courier New', monospace; font-size: 12px; }
+    .swatch {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border-radius: 3px;
+      vertical-align: middle;
+      margin-right: 5px;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+
+    /* ── Output filename ── */
+    .filename-box {
+      background: var(--header-fill);
+      color: #fff;
+      border-radius: 10px;
+      padding: 22px 28px;
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+    .filename-item { display: flex; flex-direction: column; gap: 6px; }
+    .filename-label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+    .filename-value { font-family: 'Courier New', monospace; font-size: 14px; color: #80d4a0; }
+
+    /* ── Note ── */
+    .note-box {
+      background: #fffbe6;
+      border-left: 3px solid #e6b800;
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      font-size: 13px;
+      color: #5a4a00;
+      margin-top: 20px;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .hero { padding: 36px 24px 32px; }
+      .page { padding: 0 24px 60px; }
+      .tab-grid  { grid-template-columns: 1fr; }
+      .style-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Hero ──────────────────────────────────────────────────────────────── -->
+<div class="hero">
+  <p class="hero-eyebrow">Claude Skill</p>
+  <h1>MLU Report Builder</h1>
+  <p>Generates a styled Excel QBR or Monthly report for <strong>Machines Like Us</strong> from platform analytics CSV exports — Apple, Spotify, and YouTube.</p>
+  <div class="badge-row">
+    <span class="badge badge-apple">Apple Podcasts</span>
+    <span class="badge badge-spotify">Spotify</span>
+    <span class="badge badge-youtube">YouTube</span>
+    <span class="badge badge-excel">Excel Output</span>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- ── Trigger ─────────────────────────────────────────────────────────── -->
+  <section>
+    <h2>When to Use</h2>
+    <div class="trigger-box">
+      <p>Say any of the following — Claude will invoke this skill automatically:</p>
+      <div class="phrase-grid">
+        <span class="phrase">"Generate the Q2 QBR"</span>
+        <span class="phrase">"Create the March monthly report"</span>
+        <span class="phrase">"Run the MLU report for Q3"</span>
+        <span class="phrase">"Build the report"</span>
+        <span class="phrase">"Make the April report"</span>
+        <span class="phrase">"Run the report for Q1 2026"</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Workflow ─────────────────────────────────────────────────────────── -->
+  <section>
+    <h2>How It Works</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Identify Inputs</h3>
+          <p>Claude asks for (or infers) the root folder, period label (e.g. <em>Q1 2026</em> or <em>March 2026</em>), and report type (QBR or Monthly).</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Validate Folder Structure</h3>
+          <p>Before running, the script checks that all required subfolders and files exist. Any missing items are reported clearly before anything runs.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Generate Charts &amp; Build Workbook</h3>
+          <p>The bundled Python script auto-discovers all CSVs via glob, renders four styled charts, and assembles the Excel workbook with data tables alongside each chart.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Save &amp; Confirm</h3>
+          <p>The finished workbook is saved to the root folder. Temporary chart images are deleted automatically. Claude reports the full output path.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Folder structure ─────────────────────────────────────────────────── -->
+  <section>
+    <h2>Required Folder Structure</h2>
+    <div class="folder-tree">
+      <div><span class="dir">&lt;root&gt;/</span></div>
+      <div>&nbsp;&nbsp;<span class="dir">Apple/</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">Apple Monthly Listeners/</span> &nbsp;<span class="note">← one CSV per month</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">MLU_ListenersbyEngagement_Jan2026.csv</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">MLU_ListenersbyEngagement_Feb2026.csv</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">MLU_ListenersbyEngagement_Mar2026.csv</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">Apple Monthly Subscribers/</span> &nbsp;<span class="note">← one CSV per month</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">MLU_Jan26_Apple_MonthlySubs.csv</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">MLU_Feb26_Apple_MonthlySubs.csv</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">MLU_Mar26_Apple_MonthlySubs.csv</span></div>
+      <div>&nbsp;&nbsp;<span class="dir">Spotify/</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">MLU_Q126_Spotify_Listeners.csv</span> &nbsp;<span class="note">← single file</span></div>
+      <div>&nbsp;&nbsp;<span class="dir">YouTube/</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">MLU_YouTube_Q126_AllViewers.csv</span> &nbsp;<span class="note">← single file</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">MLU_YouTube_Q126_Subscribers.csv</span> &nbsp;<span class="note">← single file</span></div>
+    </div>
+    <div class="note-box">
+      Files are discovered via glob — you only need to drop new monthly CSVs into the correct subfolder. No code changes required for new months or quarters.
+    </div>
+  </section>
+
+  <!-- ── Output tabs ───────────────────────────────────────────────────────── -->
+  <section>
+    <h2>Output Workbook — 4 Tabs</h2>
+    <div class="tab-grid">
+
+      <!-- Followers -->
+      <div class="tab-card">
+        <div class="tab-card-header">
+          <span class="tab-label tab-label-followers">Followers</span>
+        </div>
+        <div class="tab-card-body">
+          <p>Three-line chart showing follower/subscriber growth across all platforms, with a side-by-side data table.</p>
+          <div>
+            <span class="data-pill"><span class="dot" style="background:var(--apple)"></span>Apple Net Followers</span>
+            <span class="data-pill"><span class="dot" style="background:var(--spotify)"></span>Spotify Followers</span>
+            <span class="data-pill"><span class="dot" style="background:var(--youtube)"></span>YouTube Subscribers</span>
+          </div>
+          <div class="mini-chart">
+            <div class="mini-lines">
+              <svg viewBox="0 0 200 60" preserveAspectRatio="none">
+                <!-- grid lines -->
+                <line x1="0" y1="15" x2="200" y2="15" stroke="rgba(197,189,179,0.6)" stroke-width="0.8"/>
+                <line x1="0" y1="30" x2="200" y2="30" stroke="rgba(197,189,179,0.6)" stroke-width="0.8"/>
+                <line x1="0" y1="45" x2="200" y2="45" stroke="rgba(197,189,179,0.6)" stroke-width="0.8"/>
+                <!-- Apple line (top) -->
+                <polyline points="0,14 25,12 50,11 75,10 100,9 125,8 150,7 175,6 200,5"
+                  fill="none" stroke="#5B2C8D" stroke-width="1.6"/>
+                <!-- Spotify line (middle) -->
+                <polyline points="0,32 25,31 50,30 75,30 100,29 125,28 150,28 175,27 200,26"
+                  fill="none" stroke="#1A4B8C" stroke-width="1.6"/>
+                <!-- YouTube line (bottom) -->
+                <polyline points="0,50 25,49 50,46 75,43 100,40 125,38 150,35 175,32 200,28"
+                  fill="none" stroke="#C0392B" stroke-width="1.6"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Apple -->
+      <div class="tab-card">
+        <div class="tab-card-header">
+          <span class="tab-label tab-label-apple">Apple</span>
+        </div>
+        <div class="tab-card-body">
+          <p>Daily Unique Listeners area chart with full raw data table (plays, time listened, engaged listeners).</p>
+          <div>
+            <span class="data-pill">Date</span>
+            <span class="data-pill">Total Time Listened</span>
+            <span class="data-pill">Plays</span>
+            <span class="data-pill">Unique Listeners</span>
+            <span class="data-pill">Engaged Listeners</span>
+          </div>
+          <div class="mini-chart">
+            <div class="mini-area"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Spotify -->
+      <div class="tab-card">
+        <div class="tab-card-header">
+          <span class="tab-label tab-label-spotify">Spotify</span>
+        </div>
+        <div class="tab-card-body">
+          <p>Daily Plays area chart with full raw data table including consumption hours and follower count.</p>
+          <div>
+            <span class="data-pill">Date</span>
+            <span class="data-pill">Plays</span>
+            <span class="data-pill">Consumption Hours</span>
+            <span class="data-pill">Followers</span>
+          </div>
+          <div class="mini-chart">
+            <div class="mini-area" style="clip-path: polygon(
+              0% 55%, 8% 40%, 15% 50%, 22% 30%, 30% 48%, 38% 22%,
+              46% 38%, 54% 28%, 62% 42%, 70% 22%, 78% 35%, 86% 20%, 94% 30%, 100% 25%,
+              100% 100%, 0% 100%)"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- YouTube -->
+      <div class="tab-card">
+        <div class="tab-card-header">
+          <span class="tab-label tab-label-youtube">YouTube</span>
+        </div>
+        <div class="tab-card-body">
+          <p>Daily Monthly Audience area chart with combined viewers and subscriber count data table.</p>
+          <div>
+            <span class="data-pill">Date</span>
+            <span class="data-pill">Monthly Audience</span>
+            <span class="data-pill">Subscribers</span>
+          </div>
+          <div class="mini-chart">
+            <div class="mini-area" style="clip-path: polygon(
+              0% 30%, 8% 28%, 15% 20%, 22% 15%, 30% 10%, 38% 8%,
+              46% 10%, 54% 15%, 62% 25%, 70% 35%, 78% 45%, 86% 50%, 94% 55%, 100% 58%,
+              100% 100%, 0% 100%)"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Style reference ───────────────────────────────────────────────────── -->
+  <section>
+    <h2>Style Reference</h2>
+    <div class="style-grid">
+
+      <div class="style-card">
+        <h3>Chart Colors</h3>
+        <div class="style-row">
+          <span class="style-key">Background</span>
+          <span class="style-val"><span class="swatch" style="background:#F2EDE3"></span>#F2EDE3</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Area fill</span>
+          <span class="style-val"><span class="swatch" style="background:#7B1E1E"></span>#7B1E1E</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Apple line</span>
+          <span class="style-val"><span class="swatch" style="background:#5B2C8D"></span>#5B2C8D</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Spotify line</span>
+          <span class="style-val"><span class="swatch" style="background:#1A4B8C"></span>#1A4B8C</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">YouTube line</span>
+          <span class="style-val"><span class="swatch" style="background:#C0392B"></span>#C0392B</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Grid lines</span>
+          <span class="style-val"><span class="swatch" style="background:#C5BDB3"></span>#C5BDB3</span>
+        </div>
+      </div>
+
+      <div class="style-card">
+        <h3>Chart Layout</h3>
+        <div class="style-row">
+          <span class="style-key">Figure size</span>
+          <span class="style-val">13 × 5.5 in</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Resolution</span>
+          <span class="style-val">150 dpi</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">X-axis ticks</span>
+          <span class="style-val">Weekly (Mon), 45°</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">X-axis format</span>
+          <span class="style-val">DD-Mon</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Y-axis format</span>
+          <span class="style-val">Comma integers</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Spines visible</span>
+          <span class="style-val">Bottom only</span>
+        </div>
+      </div>
+
+      <div class="style-card">
+        <h3>Excel Styles</h3>
+        <div class="style-row">
+          <span class="style-key">Font</span>
+          <span class="style-val">Arial throughout</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Title</span>
+          <span class="style-val">Bold 14pt, left</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Header fill</span>
+          <span class="style-val"><span class="swatch" style="background:#2C3E50"></span>#2C3E50</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Header font</span>
+          <span class="style-val">White bold 10pt</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Header height</span>
+          <span class="style-val">30pt</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Data font</span>
+          <span class="style-val">Arial 10pt</span>
+        </div>
+      </div>
+
+      <div class="style-card">
+        <h3>Output Filenames</h3>
+        <div class="style-row">
+          <span class="style-key">QBR</span>
+          <span class="style-val">MLU_Q1_2026_QBR.xlsx</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Monthly</span>
+          <span class="style-val">MLU_March_2026_Monthly.xlsx</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Location</span>
+          <span class="style-val">Root folder</span>
+        </div>
+        <div class="style-row">
+          <span class="style-key">Temp images</span>
+          <span class="style-val">Auto-deleted</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Skill files ───────────────────────────────────────────────────────── -->
+  <section>
+    <h2>Skill Files</h2>
+    <div class="folder-tree">
+      <div><span class="dir">skills/mlu-report/</span></div>
+      <div>&nbsp;&nbsp;<span class="file">SKILL.md</span> &nbsp;<span class="note">← skill definition, trigger description, step-by-step instructions</span></div>
+      <div>&nbsp;&nbsp;<span class="file">mlu-report-skill.html</span> &nbsp;<span class="note">← this visual reference</span></div>
+      <div>&nbsp;&nbsp;<span class="dir">scripts/</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">build_report.py</span> &nbsp;<span class="note">← self-contained Python builder (data → charts → Excel)</span></div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
