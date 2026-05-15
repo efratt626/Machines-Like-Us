@@ -18,22 +18,21 @@ def glob_first(*patterns):
         if m: return sorted(m)
     return []
 
-def load_apple_listeners(apple_dir):
+def load_apple_plays(apple_dir):
     csvs = glob_first(
-        os.path.join(apple_dir, "Apple Monthly Listeners", "*.csv"),
-        os.path.join(apple_dir, "*Listeners*.csv"),
-        os.path.join(apple_dir, "*listeners*.csv"),
+        os.path.join(apple_dir, "Apple Monthly Plays", "*.csv"),
+        os.path.join(apple_dir, "*Plays*.csv"),
+        os.path.join(apple_dir, "*plays*.csv"),
     )
     if not csvs: return None
     df = pd.concat([pd.read_csv(f, quotechar='"') for f in csvs], ignore_index=True)
     df['Date'] = pd.to_datetime(df['Date'].astype(str), format='%Y%m%d')
     for col in ['Total Time Listened', 'Plays', 'Unique Listeners', 'Unique Engaged Listeners']:
         df[col] = pd.to_numeric(df[col], errors='coerce')
-    # Episode-level → aggregate to daily
-    if 'Episode ID' in df.columns:
-        df = (df.groupby('Date', as_index=False)
-              [['Total Time Listened', 'Plays', 'Unique Listeners', 'Unique Engaged Listeners']]
-              .sum())
+    # Episode-level → aggregate to daily totals
+    df = (df.groupby('Date', as_index=False)
+          [['Total Time Listened', 'Plays', 'Unique Listeners', 'Unique Engaged Listeners']]
+          .sum())
     return df.sort_values('Date').reset_index(drop=True)
 
 def load_apple_followers(apple_dir):
@@ -127,7 +126,7 @@ def build_period_data(p):
     spotify_dir = os.path.join(path, "Spotify")
     yt_dir      = os.path.join(path, "YouTube")
 
-    al = load_apple_listeners(apple_dir)
+    al = load_apple_plays(apple_dir)
     af = load_apple_followers(apple_dir)
     sp = load_spotify(spotify_dir)
     yv = load_yt_viewers(yt_dir)
@@ -137,7 +136,7 @@ def build_period_data(p):
         "label":   p["label"],
         "type":    p["type"],
         # chart series
-        "apple_listeners":   to_points(al, "Date", "Unique Listeners"),
+        "apple_plays":       to_points(al, "Date", "Plays"),
         "apple_followers":   to_points(af, "Date", "Net Followers"),
         "spotify_plays":     to_points(sp, "Date", "Plays"),
         "spotify_followers": to_points(sp, "Date", "Followers"),
@@ -145,7 +144,7 @@ def build_period_data(p):
         "yt_subs":           to_points(ys, "Date", "Subscribers"),
         # KPIs
         "kpi": {
-            "apple_listeners_total":  f"{int(al['Unique Listeners'].sum()):,}" if al is not None else "—",
+            "apple_plays_total":      f"{int(al['Plays'].sum()):,}" if al is not None else "—",
             "apple_followers_end":    f"{safe_int(af['Net Followers']):,}" if af is not None else "—",
             "apple_followers_delta":  f"+{delta(af['Net Followers']):,}" if af is not None else "—",
             "apple_followers_pct":    f"+{pct(af['Net Followers'])}%" if af is not None else "—",
@@ -280,7 +279,7 @@ html = f"""<!DOCTYPE html>
   <div class="section" id="sec-apple">
     <div class="kpi-row" id="ap-kpis"></div>
     <div class="chart-card">
-      <div class="chart-title">Unique Listeners Per Day</div>
+      <div class="chart-title">Plays Per Day</div>
       <div class="chart-wrap"><canvas id="ch-apple-listeners"></canvas></div>
     </div>
     <div class="chart-card">
@@ -429,7 +428,7 @@ function renderPeriod(label) {{
     <div class="platform-card">
       <div class="platform-header"><div class="platform-dot" style="background:${{APPLE_C}}"></div><span class="platform-name">Apple Podcasts</span></div>
       <div class="platform-stats">
-        <div class="stat-row"><span class="stat-label">Total Listeners</span><span class="stat-val">${{k.apple_listeners_total}}</span></div>
+        <div class="stat-row"><span class="stat-label">Total Plays</span><span class="stat-val">${{k.apple_plays_total}}</span></div>
         <div class="stat-row"><span class="stat-label">Followers</span><span class="stat-val">${{k.apple_followers_end}} <small style="color:var(--muted);font-weight:400">${{k.apple_followers_pct}}</small></span></div>
       </div>
     </div>
@@ -450,7 +449,7 @@ function renderPeriod(label) {{
 
   // Apple KPIs
   document.getElementById('ap-kpis').innerHTML =
-    kpiCard('Total Unique Listeners', k.apple_listeners_total, d.label, '') +
+    kpiCard('Total Plays', k.apple_plays_total, d.label, '') +
     kpiCard('Followers', k.apple_followers_end, '', k.apple_followers_delta + ' (' + k.apple_followers_pct + ')') +
     kpiCard('Follower Growth', k.apple_followers_delta, 'Net new followers', '');
 
@@ -472,7 +471,7 @@ function renderPeriod(label) {{
     {{ label: 'Spotify',        data: d.spotify_followers, color: SPOTIFY_C }},
     {{ label: 'YouTube',        data: d.yt_subs,           color: YOUTUBE_C }},
   ]);
-  makeArea('ch-apple-listeners',   d.apple_listeners,   RED_FILL);
+  makeArea('ch-apple-listeners',   d.apple_plays,       RED_FILL);
   makeArea('ch-apple-followers',   d.apple_followers,   APPLE_C);
   makeArea('ch-spotify-plays',     d.spotify_plays,     RED_FILL);
   makeArea('ch-spotify-followers', d.spotify_followers, SPOTIFY_C);
