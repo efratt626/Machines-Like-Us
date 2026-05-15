@@ -1,16 +1,15 @@
 """
 MLU Multi-Period Dashboard Generator
-Auto-discovers all QBRs and Monthly Reports under the Machines Like Us root.
+Produces Q1, individual months (Jan–Mar from Q1 data), and April.
 Usage: python3 build_dashboard.py <mlu_root>
-  mlu_root – path to the "Machines Like Us" folder
 """
 
 import sys, os, glob, json
 import pandas as pd
 
-ROOT = sys.argv[1]  # e.g. /Users/.../Machines Like Us
+ROOT = sys.argv[1]
 
-# ── Data loaders ───────────────────────────────────────────────────────────
+# ── Raw loaders ────────────────────────────────────────────────────────────
 
 def glob_first(*patterns):
     for p in patterns:
@@ -18,98 +17,103 @@ def glob_first(*patterns):
         if m: return sorted(m)
     return []
 
-def load_apple_plays(apple_dir):
-    csvs = glob_first(
-        os.path.join(apple_dir, "Apple Monthly Plays", "*.csv"),
-        os.path.join(apple_dir, "*Plays*.csv"),
-        os.path.join(apple_dir, "*plays*.csv"),
-    )
-    if not csvs: return None
-    df = pd.concat([pd.read_csv(f, quotechar='"') for f in csvs], ignore_index=True)
+def load_episode_csv(paths):
+    """Load episode-level Apple CSVs and aggregate to daily Plays."""
+    df = pd.concat([pd.read_csv(f, quotechar='"') for f in paths], ignore_index=True)
     df['Date'] = pd.to_datetime(df['Date'].astype(str), format='%Y%m%d')
     for col in ['Total Time Listened', 'Plays', 'Unique Listeners', 'Unique Engaged Listeners']:
         df[col] = pd.to_numeric(df[col], errors='coerce')
-    # Episode-level → aggregate to daily totals
-    df = (df.groupby('Date', as_index=False)
-          [['Total Time Listened', 'Plays', 'Unique Listeners', 'Unique Engaged Listeners']]
-          .sum())
-    return df.sort_values('Date').reset_index(drop=True)
+    return (df.groupby('Date', as_index=False)
+              [['Total Time Listened', 'Plays', 'Unique Listeners', 'Unique Engaged Listeners']]
+              .sum()
+              .sort_values('Date').reset_index(drop=True))
 
-def load_apple_followers(apple_dir):
-    csvs = glob_first(
-        os.path.join(apple_dir, "Apple Monthly Subscribers", "*.csv"),
-        os.path.join(apple_dir, "*Followers*.csv"),
-        os.path.join(apple_dir, "*followers*.csv"),
-        os.path.join(apple_dir, "*Subscribers*.csv"),
-    )
-    if not csvs: return None
-    df = pd.concat([pd.read_csv(f) for f in csvs], ignore_index=True)
+def load_followers_csv(paths):
+    df = pd.concat([pd.read_csv(f) for f in paths], ignore_index=True)
     df['Date'] = pd.to_datetime(df['Date'].astype(str), format='%Y%m%d')
     return df.sort_values('Date').reset_index(drop=True)
 
-def load_spotify(spotify_dir):
-    files = glob_first(
-        os.path.join(spotify_dir, "*Spotify_Listeners*.csv"),
-        os.path.join(spotify_dir, "*Spotify_Followers_Plays*.csv"),
-        os.path.join(spotify_dir, "*.csv"),
-    )
-    if not files: return None
-    df = pd.read_csv(files[0])
+def load_single_csv(path):
+    df = pd.read_csv(path)
     df['Date'] = pd.to_datetime(df['Date'])
     return df.sort_values('Date').reset_index(drop=True)
 
-def load_yt_viewers(yt_dir):
-    files = glob_first(
-        os.path.join(yt_dir, "*AllViewers*.csv"),
-        os.path.join(yt_dir, "*Viewers*.csv"),
-        os.path.join(yt_dir, "*viewers*.csv"),
-    )
-    if not files: return None
-    df = pd.read_csv(files[0])
-    df['Date'] = pd.to_datetime(df['Date'])
-    return df.sort_values('Date').reset_index(drop=True)
+# ── Load all source data once ──────────────────────────────────────────────
 
-def load_yt_subs(yt_dir):
-    files = glob_first(os.path.join(yt_dir, "*Subscribers*.csv"))
-    if not files: return None
-    df = pd.read_csv(files[0])
-    df['Date'] = pd.to_datetime(df['Date'])
-    return df.sort_values('Date').reset_index(drop=True)
+Q1 = os.path.join(ROOT, "QBRs", "Q1")
+APR = os.path.join(ROOT, "Monthly Reports", "April")
 
-# ── Discover periods ────────────────────────────────────────────────────────
+# Q1 Apple plays (episode-level → daily)
+q1_apple_plays_csvs = glob_first(os.path.join(Q1, "Apple", "Apple Monthly Plays", "*.csv"))
+q1_apple_plays = load_episode_csv(q1_apple_plays_csvs)
 
-def discover_periods(root):
-    periods = []
+# Q1 Apple followers
+q1_apple_fol_csvs = glob_first(os.path.join(Q1, "Apple", "Apple Monthly Subscribers", "*.csv"))
+q1_apple_fol = load_followers_csv(q1_apple_fol_csvs)
 
-    # QBRs
-    qbr_base = os.path.join(root, "QBRs")
-    if os.path.isdir(qbr_base):
-        for name in sorted(os.listdir(qbr_base)):
-            folder = os.path.join(qbr_base, name)
-            if os.path.isdir(folder):
-                periods.append({"label": f"{name} 2026", "type": "QBR", "path": folder})
+# Q1 Spotify
+q1_spotify_file = glob_first(
+    os.path.join(Q1, "Spotify", "*Spotify_Listeners*.csv"),
+    os.path.join(Q1, "Spotify", "*.csv"),
+)[0]
+q1_spotify = load_single_csv(q1_spotify_file)
 
-    # Monthly Reports
-    monthly_base = os.path.join(root, "Monthly Reports")
-    if os.path.isdir(monthly_base):
-        for name in sorted(os.listdir(monthly_base)):
-            folder = os.path.join(monthly_base, name)
-            if os.path.isdir(folder):
-                periods.append({"label": f"{name} 2026", "type": "Monthly", "path": folder})
+# Q1 YouTube
+q1_yt_viewers_file = glob_first(
+    os.path.join(Q1, "YouTube", "*AllViewers*.csv"),
+    os.path.join(Q1, "YouTube", "*Viewers*.csv"),
+)[0]
+q1_yt_viewers = load_single_csv(q1_yt_viewers_file)
 
-    return periods
+q1_yt_subs_file = glob_first(os.path.join(Q1, "YouTube", "*Subscribers*.csv"))[0]
+q1_yt_subs = load_single_csv(q1_yt_subs_file)
 
-# ── Build dataset for one period ────────────────────────────────────────────
+# April Apple plays
+apr_apple_plays_csvs = glob_first(
+    os.path.join(APR, "Apple", "*Plays*.csv"),
+    os.path.join(APR, "Apple", "*.csv"),
+)
+apr_apple_plays = load_episode_csv(apr_apple_plays_csvs)
 
-def to_points(df, date_col, val_col):
-    if df is None or val_col not in df.columns: return []
-    return [
-        {"x": row[date_col].strftime("%Y-%m-%d"), "y": int(row[val_col])}
-        for _, row in df.iterrows() if pd.notna(row[val_col])
-    ]
+# April Apple followers
+apr_apple_fol_csvs = glob_first(
+    os.path.join(APR, "Apple", "*Followers*.csv"),
+    os.path.join(APR, "Apple", "*Subscribers*.csv"),
+)
+apr_apple_fol = load_followers_csv(apr_apple_fol_csvs)
 
-def safe_int(series):
-    return int(series.dropna().iloc[-1]) if len(series.dropna()) else 0
+# April Spotify
+apr_spotify_file = glob_first(
+    os.path.join(APR, "Spotify", "*Followers_Plays*.csv"),
+    os.path.join(APR, "Spotify", "*.csv"),
+)[0]
+apr_spotify = load_single_csv(apr_spotify_file)
+
+# April YouTube
+apr_yt_viewers_file = glob_first(
+    os.path.join(APR, "YouTube", "*Viewers*.csv"),
+    os.path.join(APR, "YouTube", "*viewers*.csv"),
+)[0]
+apr_yt_viewers = load_single_csv(apr_yt_viewers_file)
+
+apr_yt_subs_file = glob_first(os.path.join(APR, "YouTube", "*Subscribers*.csv"))[0]
+apr_yt_subs = load_single_csv(apr_yt_subs_file)
+
+# ── Filter helpers ─────────────────────────────────────────────────────────
+
+def by_month(df, month):
+    return df[df['Date'].dt.month == month].copy().reset_index(drop=True)
+
+# ── Serialisation helpers ──────────────────────────────────────────────────
+
+def pts(df, col):
+    if df is None or col not in df.columns: return []
+    return [{"x": r['Date'].strftime("%Y-%m-%d"), "y": int(r[col])}
+            for _, r in df.iterrows() if pd.notna(r[col])]
+
+def safe_last(series):
+    s = series.dropna()
+    return int(s.iloc[-1]) if len(s) else 0
 
 def delta(series):
     s = series.dropna()
@@ -120,57 +124,66 @@ def pct(series):
     start = int(s.iloc[0])
     return round((delta(series) / start) * 100, 1) if start and len(s) >= 2 else 0
 
-def build_period_data(p):
-    path = p["path"]
-    apple_dir   = os.path.join(path, "Apple")
-    spotify_dir = os.path.join(path, "Spotify")
-    yt_dir      = os.path.join(path, "YouTube")
-
-    al = load_apple_plays(apple_dir)
-    af = load_apple_followers(apple_dir)
-    sp = load_spotify(spotify_dir)
-    yv = load_yt_viewers(yt_dir)
-    ys = load_yt_subs(yt_dir)
-
+def kpis(ap, af, sp, yv, ys):
     return {
-        "label":   p["label"],
-        "type":    p["type"],
-        # chart series
-        "apple_plays":       to_points(al, "Date", "Plays"),
-        "apple_followers":   to_points(af, "Date", "Net Followers"),
-        "spotify_plays":     to_points(sp, "Date", "Plays"),
-        "spotify_followers": to_points(sp, "Date", "Followers"),
-        "yt_audience":       to_points(yv, "Date", "Monthly audience"),
-        "yt_subs":           to_points(ys, "Date", "Subscribers"),
-        # KPIs
-        "kpi": {
-            "apple_plays_total":      f"{int(al['Plays'].sum()):,}" if al is not None else "—",
-            "apple_followers_end":    f"{safe_int(af['Net Followers']):,}" if af is not None else "—",
-            "apple_followers_delta":  f"+{delta(af['Net Followers']):,}" if af is not None else "—",
-            "apple_followers_pct":    f"+{pct(af['Net Followers'])}%" if af is not None else "—",
-            "spotify_plays_total":    f"{int(sp['Plays'].sum()):,}" if sp is not None else "—",
-            "spotify_followers_end":  f"{safe_int(sp['Followers']):,}" if sp is not None else "—",
-            "spotify_followers_delta":f"+{delta(sp['Followers']):,}" if sp is not None else "—",
-            "spotify_followers_pct":  f"+{pct(sp['Followers'])}%" if sp is not None else "—",
-            "yt_audience_avg":        f"{int(yv['Monthly audience'].mean()):,}" if yv is not None else "—",
-            "yt_subs_end":            f"{safe_int(ys['Subscribers']):,}" if ys is not None else "—",
-            "yt_subs_delta":          f"+{delta(ys['Subscribers']):,}" if ys is not None else "—",
-            "yt_subs_pct":            f"+{pct(ys['Subscribers'])}%" if ys is not None else "—",
-        }
+        "apple_plays_total":       f"{int(ap['Plays'].sum()):,}"        if ap is not None else "—",
+        "apple_followers_end":     f"{safe_last(af['Net Followers']):,}" if af is not None else "—",
+        "apple_followers_delta":   f"+{delta(af['Net Followers']):,}"    if af is not None else "—",
+        "apple_followers_pct":     f"+{pct(af['Net Followers'])}%"       if af is not None else "—",
+        "spotify_plays_total":     f"{int(sp['Plays'].sum()):,}"         if sp is not None else "—",
+        "spotify_followers_end":   f"{safe_last(sp['Followers']):,}"     if sp is not None else "—",
+        "spotify_followers_delta": f"+{delta(sp['Followers']):,}"        if sp is not None else "—",
+        "spotify_followers_pct":   f"+{pct(sp['Followers'])}%"           if sp is not None else "—",
+        "yt_audience_avg":         f"{int(yv['Monthly audience'].mean()):,}" if yv is not None else "—",
+        "yt_subs_end":             f"{safe_last(ys['Subscribers']):,}"   if ys is not None else "—",
+        "yt_subs_delta":           f"+{delta(ys['Subscribers']):,}"      if ys is not None else "—",
+        "yt_subs_pct":             f"+{pct(ys['Subscribers'])}%"         if ys is not None else "—",
     }
 
-# ── Collect all periods ─────────────────────────────────────────────────────
+def make_period(label, group, ap, af, sp, yv, ys):
+    return {
+        "label": label, "group": group,
+        "apple_plays":       pts(ap, "Plays"),
+        "apple_followers":   pts(af, "Net Followers"),
+        "spotify_plays":     pts(sp, "Plays"),
+        "spotify_followers": pts(sp, "Followers"),
+        "yt_audience":       pts(yv, "Monthly audience"),
+        "yt_subs":           pts(ys, "Subscribers"),
+        "kpi":               kpis(ap, af, sp, yv, ys),
+    }
 
-periods_meta = discover_periods(ROOT)
-if not periods_meta:
-    print("ERROR: No QBR or Monthly Report folders found under", ROOT)
-    sys.exit(1)
+# ── Build all periods ──────────────────────────────────────────────────────
 
-all_data = [build_period_data(p) for p in periods_meta]
-periods_json = json.dumps(all_data)
-default_label = all_data[0]["label"]
+MONTH_NAMES = {1: "January", 2: "February", 3: "March"}
 
-# ── Generate HTML ───────────────────────────────────────────────────────────
+all_periods = []
+
+# Q1 full
+all_periods.append(make_period(
+    "Q1 2026", "quarter",
+    q1_apple_plays, q1_apple_fol, q1_spotify, q1_yt_viewers, q1_yt_subs
+))
+
+# Jan, Feb, Mar (filtered from Q1 data)
+for m, name in MONTH_NAMES.items():
+    all_periods.append(make_period(
+        f"{name} 2026", "month",
+        by_month(q1_apple_plays, m),
+        by_month(q1_apple_fol, m),
+        by_month(q1_spotify, m),
+        by_month(q1_yt_viewers, m),
+        by_month(q1_yt_subs, m),
+    ))
+
+# April
+all_periods.append(make_period(
+    "April 2026", "month",
+    apr_apple_plays, apr_apple_fol, apr_spotify, apr_yt_viewers, apr_yt_subs
+))
+
+periods_json = json.dumps(all_periods)
+
+# ── HTML ───────────────────────────────────────────────────────────────────
 
 html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -192,19 +205,21 @@ html = f"""<!DOCTYPE html>
   body{{font-family:Arial,sans-serif;background:var(--cream);color:var(--dark);min-height:100vh}}
 
   /* Hero */
-  .hero{{background:var(--header);color:#fff;padding:36px 48px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}}
+  .hero{{background:var(--header);color:#fff;padding:32px 48px 24px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:20px}}
   .hero h1{{font-size:26px;font-weight:700;letter-spacing:-0.3px}}
-  .hero p{{font-size:12px;color:rgba(255,255,255,0.5);margin-top:4px;letter-spacing:1.5px;text-transform:uppercase}}
+  .hero-eyebrow{{font-size:11px;color:rgba(255,255,255,0.45);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}}
 
-  /* Period toggle */
-  .period-bar{{display:flex;gap:8px;align-items:center;flex-wrap:wrap}}
-  .period-btn{{padding:7px 16px;border-radius:20px;border:1px solid rgba(255,255,255,0.25);background:transparent;color:rgba(255,255,255,0.6);font-size:12px;font-weight:600;cursor:pointer;transition:all .18s;white-space:nowrap;font-family:Arial,sans-serif}}
+  /* Toggle groups */
+  .toggles{{display:flex;flex-direction:column;gap:8px;align-items:flex-end}}
+  .toggle-group{{display:flex;align-items:center;gap:6px}}
+  .toggle-group-label{{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-right:4px;white-space:nowrap}}
+  .period-btn{{padding:6px 14px;border-radius:20px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.55);font-size:12px;font-weight:600;cursor:pointer;transition:all .18s;white-space:nowrap;font-family:Arial,sans-serif}}
   .period-btn:hover{{background:rgba(255,255,255,0.1);color:#fff}}
   .period-btn.active{{background:#fff;color:var(--header);border-color:#fff}}
 
   /* Platform nav */
-  nav{{background:#fff;border-bottom:1px solid var(--cream-border);padding:0 48px;display:flex;gap:0;position:sticky;top:0;z-index:100}}
-  .nav-btn{{padding:15px 20px;font-size:13px;font-weight:600;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:all .18s;white-space:nowrap;font-family:Arial,sans-serif}}
+  nav{{background:#fff;border-bottom:1px solid var(--cream-border);padding:0 48px;display:flex;position:sticky;top:0;z-index:100}}
+  .nav-btn{{padding:15px 20px;font-size:13px;font-weight:600;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:all .18s;font-family:Arial,sans-serif}}
   .nav-btn:hover{{color:var(--dark)}}
   .nav-btn.active{{color:var(--dark);border-bottom-color:var(--dark)}}
   .nav-btn.active.apple{{color:var(--apple);border-bottom-color:var(--apple)}}
@@ -241,6 +256,7 @@ html = f"""<!DOCTYPE html>
 
   @media(max-width:720px){{
     .hero{{padding:24px}}
+    .toggles{{align-items:flex-start}}
     .page{{padding:24px 24px 60px}}
     nav{{padding:0 16px}}
     .kpi-row,.overview-grid{{grid-template-columns:1fr}}
@@ -251,22 +267,23 @@ html = f"""<!DOCTYPE html>
 
 <div class="hero">
   <div>
-    <p>Machines Like Us</p>
+    <div class="hero-eyebrow">Machines Like Us</div>
     <h1>Analytics Dashboard</h1>
   </div>
-  <div class="period-bar" id="period-bar"></div>
+  <div class="toggles">
+    <div class="toggle-group" id="tg-quarter"></div>
+    <div class="toggle-group" id="tg-month"></div>
+  </div>
 </div>
 
 <nav>
-  <button class="nav-btn active"    onclick="showTab('overview',this)">Overview</button>
-  <button class="nav-btn apple"     onclick="showTab('apple',this)">Apple Podcasts</button>
-  <button class="nav-btn spotify"   onclick="showTab('spotify',this)">Spotify</button>
-  <button class="nav-btn youtube"   onclick="showTab('youtube',this)">YouTube</button>
+  <button class="nav-btn active"  onclick="showTab('overview',this)">Overview</button>
+  <button class="nav-btn apple"   onclick="showTab('apple',this)">Apple Podcasts</button>
+  <button class="nav-btn spotify" onclick="showTab('spotify',this)">Spotify</button>
+  <button class="nav-btn youtube" onclick="showTab('youtube',this)">YouTube</button>
 </nav>
 
 <div class="page">
-
-  <!-- Overview -->
   <div class="section active" id="sec-overview">
     <div class="overview-grid" id="ov-cards"></div>
     <div class="chart-card">
@@ -274,21 +291,17 @@ html = f"""<!DOCTYPE html>
       <div class="chart-wrap"><canvas id="ch-combined"></canvas></div>
     </div>
   </div>
-
-  <!-- Apple -->
   <div class="section" id="sec-apple">
     <div class="kpi-row" id="ap-kpis"></div>
     <div class="chart-card">
       <div class="chart-title">Plays Per Day</div>
-      <div class="chart-wrap"><canvas id="ch-apple-listeners"></canvas></div>
+      <div class="chart-wrap"><canvas id="ch-apple-plays"></canvas></div>
     </div>
     <div class="chart-card">
       <div class="chart-title">Net Followers Over Time</div>
       <div class="chart-wrap"><canvas id="ch-apple-followers"></canvas></div>
     </div>
   </div>
-
-  <!-- Spotify -->
   <div class="section" id="sec-spotify">
     <div class="kpi-row" id="sp-kpis"></div>
     <div class="chart-card">
@@ -300,8 +313,6 @@ html = f"""<!DOCTYPE html>
       <div class="chart-wrap"><canvas id="ch-spotify-followers"></canvas></div>
     </div>
   </div>
-
-  <!-- YouTube -->
   <div class="section" id="sec-youtube">
     <div class="kpi-row" id="yt-kpis"></div>
     <div class="chart-card">
@@ -313,37 +324,27 @@ html = f"""<!DOCTYPE html>
       <div class="chart-wrap"><canvas id="ch-yt-subs"></canvas></div>
     </div>
   </div>
-
 </div>
 
 <script>
-const CREAM    = '#F2EDE3';
-const GRID_C   = '#C5BDB3';
-const TEXT_C   = '#3A3A3A';
-const RED_FILL = '#7B1E1E';
-const APPLE_C  = '#5B2C8D';
-const SPOTIFY_C= '#1A4B8C';
-const YOUTUBE_C= '#C0392B';
-
+const CREAM     = '#F2EDE3';
+const GRID_C    = '#C5BDB3';
+const TEXT_C    = '#3A3A3A';
+const RED_FILL  = '#7B1E1E';
+const APPLE_C   = '#5B2C8D';
+const SPOTIFY_C = '#1A4B8C';
+const YOUTUBE_C = '#C0392B';
 Chart.defaults.font.family = 'Arial, sans-serif';
 
-// ── All embedded period data ──
-const ALL_PERIODS = {json.dumps(all_data)};
-
-// Build lookup by label
+const ALL_PERIODS = {periods_json};
 const PERIODS = {{}};
 ALL_PERIODS.forEach(p => PERIODS[p.label] = p);
 
 let activePeriod = ALL_PERIODS[0].label;
-
-// ── Chart instances (destroyed & recreated on period switch) ──
 const charts = {{}};
 
-function destroyChart(id) {{
-  if (charts[id]) {{ charts[id].destroy(); delete charts[id]; }}
-}}
+function destroyChart(id) {{ if (charts[id]) {{ charts[id].destroy(); delete charts[id]; }} }}
 
-// ── Shared chart config ──
 const baseScales = {{
   x: {{
     type: 'time',
@@ -360,8 +361,7 @@ const baseScales = {{
 }};
 
 const baseOpts = {{
-  responsive: true,
-  maintainAspectRatio: false,
+  responsive: true, maintainAspectRatio: false,
   plugins: {{
     legend: {{ display: false }},
     tooltip: {{
@@ -370,45 +370,34 @@ const baseOpts = {{
       callbacks: {{ label: ctx => ' ' + ctx.parsed.y.toLocaleString() }}
     }}
   }},
-  scales: baseScales,
-  animation: {{ duration: 500 }}
+  scales: baseScales, animation: {{ duration: 400 }}
 }};
 
-function makeArea(canvasId, data, color) {{
-  destroyChart(canvasId);
-  const ctx = document.getElementById(canvasId).getContext('2d');
-  charts[canvasId] = new Chart(ctx, {{
+function makeArea(id, data, color) {{
+  destroyChart(id);
+  charts[id] = new Chart(document.getElementById(id).getContext('2d'), {{
     type: 'line',
-    data: {{ datasets: [{{
-      data, parsing: {{ xAxisKey:'x', yAxisKey:'y' }},
-      borderColor: color, borderWidth: 1.5,
-      backgroundColor: color + '22', fill: true,
-      pointRadius: 0, tension: 0.3
-    }}] }},
+    data: {{ datasets: [{{ data, parsing: {{ xAxisKey:'x', yAxisKey:'y' }},
+      borderColor: color, borderWidth: 1.5, backgroundColor: color + '22',
+      fill: true, pointRadius: 0, tension: 0.3 }}] }},
     options: baseOpts
   }});
 }}
 
-function makeLine(canvasId, datasets) {{
-  destroyChart(canvasId);
-  const ctx = document.getElementById(canvasId).getContext('2d');
-  charts[canvasId] = new Chart(ctx, {{
+function makeLine(id, datasets) {{
+  destroyChart(id);
+  charts[id] = new Chart(document.getElementById(id).getContext('2d'), {{
     type: 'line',
-    data: {{ datasets: datasets.map(d => ({{
-      label: d.label, data: d.data,
+    data: {{ datasets: datasets.map(d => ({{ label: d.label, data: d.data,
       parsing: {{ xAxisKey:'x', yAxisKey:'y' }},
-      borderColor: d.color, borderWidth: 2,
-      backgroundColor: 'transparent', fill: false,
-      pointRadius: 0, tension: 0.3
-    }})) }},
+      borderColor: d.color, borderWidth: 2, backgroundColor: 'transparent',
+      fill: false, pointRadius: 0, tension: 0.3 }})) }},
     options: {{ ...baseOpts, plugins: {{ ...baseOpts.plugins,
       legend: {{ display: true, position: 'bottom',
-        labels: {{ color: TEXT_C, boxWidth: 12, font: {{ size: 11 }}, padding: 20 }} }}
-    }} }}
+        labels: {{ color: TEXT_C, boxWidth: 12, font: {{ size: 11 }}, padding: 20 }} }} }} }}
   }});
 }}
 
-// ── Render KPI cards ──
 function kpiCard(label, value, sub, delta) {{
   return `<div class="kpi-card">
     <div class="kpi-label">${{label}}</div>
@@ -423,7 +412,6 @@ function renderPeriod(label) {{
   const d = PERIODS[label];
   const k = d.kpi;
 
-  // Overview cards
   document.getElementById('ov-cards').innerHTML = `
     <div class="platform-card">
       <div class="platform-header"><div class="platform-dot" style="background:${{APPLE_C}}"></div><span class="platform-name">Apple Podcasts</span></div>
@@ -447,31 +435,27 @@ function renderPeriod(label) {{
       </div>
     </div>`;
 
-  // Apple KPIs
   document.getElementById('ap-kpis').innerHTML =
-    kpiCard('Total Plays', k.apple_plays_total, d.label, '') +
+    kpiCard('Total Plays', k.apple_plays_total, label, '') +
     kpiCard('Followers', k.apple_followers_end, '', k.apple_followers_delta + ' (' + k.apple_followers_pct + ')') +
     kpiCard('Follower Growth', k.apple_followers_delta, 'Net new followers', '');
 
-  // Spotify KPIs
   document.getElementById('sp-kpis').innerHTML =
-    kpiCard('Total Plays', k.spotify_plays_total, d.label, '') +
+    kpiCard('Total Plays', k.spotify_plays_total, label, '') +
     kpiCard('Followers', k.spotify_followers_end, '', k.spotify_followers_delta + ' (' + k.spotify_followers_pct + ')') +
     kpiCard('Follower Growth', k.spotify_followers_delta, 'Net new followers', '');
 
-  // YouTube KPIs
   document.getElementById('yt-kpis').innerHTML =
-    kpiCard('Avg Monthly Audience', k.yt_audience_avg, d.label, '') +
+    kpiCard('Avg Monthly Audience', k.yt_audience_avg, label, '') +
     kpiCard('Subscribers', k.yt_subs_end, '', k.yt_subs_delta + ' (' + k.yt_subs_pct + ')') +
     kpiCard('Subscriber Growth', k.yt_subs_delta, 'Net new subscribers', '');
 
-  // Charts
   makeLine('ch-combined', [
     {{ label: 'Apple Podcasts', data: d.apple_followers,   color: APPLE_C }},
     {{ label: 'Spotify',        data: d.spotify_followers, color: SPOTIFY_C }},
     {{ label: 'YouTube',        data: d.yt_subs,           color: YOUTUBE_C }},
   ]);
-  makeArea('ch-apple-listeners',   d.apple_plays,       RED_FILL);
+  makeArea('ch-apple-plays',       d.apple_plays,       RED_FILL);
   makeArea('ch-apple-followers',   d.apple_followers,   APPLE_C);
   makeArea('ch-spotify-plays',     d.spotify_plays,     RED_FILL);
   makeArea('ch-spotify-followers', d.spotify_followers, SPOTIFY_C);
@@ -479,21 +463,37 @@ function renderPeriod(label) {{
   makeArea('ch-yt-subs',           d.yt_subs,           YOUTUBE_C);
 }}
 
-// ── Period toggle buttons ──
-const bar = document.getElementById('period-bar');
-ALL_PERIODS.forEach((p, i) => {{
-  const btn = document.createElement('button');
-  btn.className = 'period-btn' + (i === 0 ? ' active' : '');
-  btn.textContent = p.label;
-  btn.onclick = () => {{
-    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderPeriod(p.label);
-  }};
-  bar.appendChild(btn);
-}});
+// ── Build toggle buttons ──
+function buildToggles() {{
+  const quarters = ALL_PERIODS.filter(p => p.group === 'quarter');
+  const months   = ALL_PERIODS.filter(p => p.group === 'month');
 
-// ── Platform tab switching ──
+  const tgQ = document.getElementById('tg-quarter');
+  const tgM = document.getElementById('tg-month');
+
+  const lbl = (txt, el) => {{
+    const s = document.createElement('span');
+    s.className = 'toggle-group-label'; s.textContent = txt; el.appendChild(s);
+  }};
+
+  lbl('Quarter', tgQ);
+  lbl('Month', tgM);
+
+  [...quarters, ...months].forEach(p => {{
+    const btn = document.createElement('button');
+    btn.className = 'period-btn' + (p.label === ALL_PERIODS[0].label ? ' active' : '');
+    // Short label: strip year for months, keep "Q1" for quarter
+    btn.textContent = p.group === 'quarter' ? p.label.split(' ')[0] : p.label.split(' ')[0];
+    btn.title = p.label;
+    btn.onclick = () => {{
+      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderPeriod(p.label);
+    }};
+    (p.group === 'quarter' ? tgQ : tgM).appendChild(btn);
+  }});
+}}
+
 function showTab(id, btn) {{
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -501,7 +501,7 @@ function showTab(id, btn) {{
   btn.classList.add('active');
 }}
 
-// ── Init ──
+buildToggles();
 renderPeriod(ALL_PERIODS[0].label);
 </script>
 </body>
