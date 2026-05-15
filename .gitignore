@@ -1,6 +1,7 @@
 # QBR and Monthly report data — kept local only
 QBRs/
 Monthly/
+Monthly Reports/
 
 # Generated Excel workbooks and chart images
 *.xlsx

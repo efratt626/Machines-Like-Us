@@ -32,10 +32,9 @@ def check(path, label):
         print(f"ERROR: Missing {label}: {path}")
         sys.exit(1)
 
-check(os.path.join(ROOT, "Apple", "Apple Monthly Listeners"),   "Apple/Apple Monthly Listeners/")
-check(os.path.join(ROOT, "Apple", "Apple Monthly Subscribers"), "Apple/Apple Monthly Subscribers/")
-check(os.path.join(ROOT, "Spotify"),                            "Spotify/")
-check(os.path.join(ROOT, "YouTube"),                            "YouTube/")
+check(os.path.join(ROOT, "Apple"),   "Apple/")
+check(os.path.join(ROOT, "Spotify"), "Spotify/")
+check(os.path.join(ROOT, "YouTube"), "YouTube/")
 
 def glob_one(pattern, label):
     matches = glob.glob(pattern)
@@ -44,12 +43,25 @@ def glob_one(pattern, label):
         sys.exit(1)
     return matches
 
+def glob_first(*patterns):
+    """Return matches for the first pattern that yields results, or [] if none do."""
+    for p in patterns:
+        m = glob.glob(p)
+        if m:
+            return m
+    return []
+
 # ── Load data ──────────────────────────────────────────────────────────────
 
-listener_csvs = glob_one(
+# Apple listeners — QBR: subdirectory per month; Monthly: flat file with episode rows
+listener_csvs = glob_first(
     os.path.join(ROOT, "Apple", "Apple Monthly Listeners", "*.csv"),
-    "Apple Monthly Listeners CSVs"
+    os.path.join(ROOT, "Apple", "*Listeners*.csv"),
+    os.path.join(ROOT, "Apple", "*listeners*.csv"),
 )
+if not listener_csvs:
+    print(f"ERROR: No Apple listeners CSV found under {ROOT}/Apple/")
+    sys.exit(1)
 apple_df = pd.concat(
     [pd.read_csv(f, quotechar='"') for f in sorted(listener_csvs)],
     ignore_index=True
@@ -57,12 +69,23 @@ apple_df = pd.concat(
 apple_df['Date'] = pd.to_datetime(apple_df['Date'].astype(str), format='%Y%m%d')
 for col in ['Total Time Listened', 'Plays', 'Unique Listeners', 'Unique Engaged Listeners']:
     apple_df[col] = pd.to_numeric(apple_df[col])
+# If episode-level (has Episode ID), aggregate to daily show-level totals
+if 'Episode ID' in apple_df.columns:
+    apple_df = (apple_df.groupby('Date', as_index=False)
+                [['Total Time Listened', 'Plays', 'Unique Listeners', 'Unique Engaged Listeners']]
+                .sum())
 apple_df = apple_df.sort_values('Date').reset_index(drop=True)
 
-sub_csvs = glob_one(
+# Apple followers/subscribers
+sub_csvs = glob_first(
     os.path.join(ROOT, "Apple", "Apple Monthly Subscribers", "*.csv"),
-    "Apple Monthly Subscribers CSVs"
+    os.path.join(ROOT, "Apple", "*Followers*.csv"),
+    os.path.join(ROOT, "Apple", "*followers*.csv"),
+    os.path.join(ROOT, "Apple", "*Subscribers*.csv"),
 )
+if not sub_csvs:
+    print(f"ERROR: No Apple followers/subscribers CSV found under {ROOT}/Apple/")
+    sys.exit(1)
 apple_subs_df = pd.concat(
     [pd.read_csv(f) for f in sorted(sub_csvs)],
     ignore_index=True
@@ -70,18 +93,27 @@ apple_subs_df = pd.concat(
 apple_subs_df['Date'] = pd.to_datetime(apple_subs_df['Date'].astype(str), format='%Y%m%d')
 apple_subs_df = apple_subs_df.sort_values('Date').reset_index(drop=True)
 
-spotify_files = glob_one(
+# Spotify — accepts both *Spotify_Listeners* and *Spotify_Followers_Plays*
+spotify_files = glob_first(
     os.path.join(ROOT, "Spotify", "*Spotify_Listeners*.csv"),
-    "Spotify Listeners CSV"
+    os.path.join(ROOT, "Spotify", "*Spotify_Followers_Plays*.csv"),
+    os.path.join(ROOT, "Spotify", "*.csv"),
 )
+if not spotify_files:
+    print(f"ERROR: No Spotify CSV found under {ROOT}/Spotify/")
+    sys.exit(1)
 spotify_df = pd.read_csv(spotify_files[0])
 spotify_df['Date'] = pd.to_datetime(spotify_df['Date'])
 spotify_df = spotify_df.sort_values('Date').reset_index(drop=True)
 
-viewer_files = glob_one(
+viewer_files = glob_first(
     os.path.join(ROOT, "YouTube", "*AllViewers*.csv"),
-    "YouTube AllViewers CSV"
+    os.path.join(ROOT, "YouTube", "*Viewers*.csv"),
+    os.path.join(ROOT, "YouTube", "*viewers*.csv"),
 )
+if not viewer_files:
+    print(f"ERROR: No YouTube viewers CSV found under {ROOT}/YouTube/")
+    sys.exit(1)
 yt_viewers = pd.read_csv(viewer_files[0])
 yt_viewers['Date'] = pd.to_datetime(yt_viewers['Date'])
 yt_viewers = yt_viewers.sort_values('Date').reset_index(drop=True)
