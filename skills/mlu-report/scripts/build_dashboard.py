@@ -345,6 +345,30 @@ const charts = {{}};
 
 function destroyChart(id) {{ if (charts[id]) {{ charts[id].destroy(); delete charts[id]; }} }}
 
+// Crosshair plugin — draws a vertical line at the hovered x position
+const crosshairPlugin = {{
+  id: 'crosshair',
+  afterDraw(chart) {{
+    if (!chart._hoverX) return;
+    const {{ ctx, chartArea: {{ top, bottom }} }} = chart;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(chart._hoverX, top);
+    ctx.lineTo(chart._hoverX, bottom);
+    ctx.strokeStyle = 'rgba(100,90,80,0.25)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.stroke();
+    ctx.restore();
+  }},
+  beforeEvent(chart, args) {{
+    const e = args.event;
+    if (e.type === 'mousemove') {{ chart._hoverX = e.x; chart.draw(); }}
+    if (e.type === 'mouseout')  {{ chart._hoverX = null; chart.draw(); }}
+  }}
+}};
+Chart.register(crosshairPlugin);
+
 const baseScales = {{
   x: {{
     type: 'time',
@@ -362,12 +386,24 @@ const baseScales = {{
 
 const baseOpts = {{
   responsive: true, maintainAspectRatio: false,
+  interaction: {{ mode: 'index', intersect: false }},
   plugins: {{
     legend: {{ display: false }},
     tooltip: {{
-      backgroundColor: '#fff', borderColor: GRID_C, borderWidth: 1,
-      titleColor: TEXT_C, bodyColor: TEXT_C,
-      callbacks: {{ label: ctx => ' ' + ctx.parsed.y.toLocaleString() }}
+      backgroundColor: '#fff',
+      borderColor: GRID_C,
+      borderWidth: 1,
+      titleColor: TEXT_C,
+      bodyColor: TEXT_C,
+      padding: 10,
+      callbacks: {{
+        title: items => {{
+          if (!items.length) return '';
+          const d = new Date(items[0].parsed.x);
+          return d.toLocaleDateString('en-GB', {{ day: 'numeric', month: 'short', year: 'numeric' }});
+        }},
+        label: ctx => '  ' + ctx.parsed.y.toLocaleString()
+      }}
     }}
   }},
   scales: baseScales, animation: {{ duration: 400 }}
